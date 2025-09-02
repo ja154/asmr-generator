@@ -6,25 +6,34 @@ import { useState, useCallback } from 'react';
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
-const MOODS = ["Calm", "Cozy", "Mysterious", "Ethereal", "Melancholy", "Dreamy"];
-const CAMERA_MOVEMENTS = ["Static", "Slow Pan", "Slow Zoom In", "Slow Zoom Out", "Dolly", "Handheld"];
-const CAMERA_ANGLES = ["Eye-level", "Low Angle", "High Angle", "Dutch Angle", "Close-up", "Wide Shot"];
+const MOODS = ["Calm", "Cozy", "Mysterious", "Ethereal", "Melancholy", "Dreamy", "Intimate", "Playful", "Futuristic", "Vintage", "Clinical", "Soothing"];
+const LIGHTING_STYLES = ["Natural Light (Day)", "Candlelight", "Neon Glow", "Soft Studio Light", "Dim Ambient", "Backlit", "Cinematic", "Moonlight"];
+
+const CAMERA_MOVEMENTS = ["Static", "Slow Pan", "Slow Zoom In", "Slow Zoom Out", "Dolly", "Handheld", "Orbit", "Tracking Shot"];
+const CAMERA_ANGLES = ["Eye-level", "Low Angle", "High Angle", "Dutch Angle", "Close-up", "Wide Shot", "Macro", "Point of View (POV)"];
 const CAMERA_FOCUS = ["Soft Focus", "Deep Focus", "Rack Focus", "Shallow Depth of Field"];
-const PRIMARY_SOUNDS = ["Rain", "Fireplace", "Wind", "Ocean Waves", "Forest Ambience", "Keyboard Typing", "None"];
-const SECONDARY_SOUNDS = ["Thunder", "Birds Chirping", "Pages Turning", "Whispering", "Ticking Clock", "Purring Cat"];
-const SOUND_QUALITIES = ["High-Fidelity (Binaural)", "Lo-fi", "Muffled", "Crisp"];
 const VISUAL_EFFECTS = ["Soft Glow", "Fog", "Muted Tones", "Film Grain", "Lens Flare", "Dust Particles", "Bokeh", "Chromatic Aberration", "Light Leaks", "Bloom", "Vignette"];
+
+const PRIMARY_SOUNDS = ["Tapping", "Crinkling", "White Noise", "Humming", "Brushing", "Liquid Sounds", "Rain", "Fireplace", "Wind", "Ocean Waves", "Forest Ambience", "Keyboard Typing", "None"];
+const SECONDARY_SOUNDS = ["Soft Speaking", "Whispering", "Mouth Sounds (inaudible)", "Fabric Rustling", "Wood Creaks", "Thunder", "Birds Chirping", "Pages Turning", "Ticking Clock", "Purring Cat"];
+const SOUND_QUALITIES = ["High-Fidelity (Binaural)", "Lo-fi", "Muffled", "Crisp", "Reverberant", "Spacious"];
+
+const ASMR_TRIGGERS = ["Tapping", "Scratching", "Brushing", "Crinkling", "Whispering", "Personal Attention", "Typing", "Liquid Sounds", "Sticky Sounds", "Soft Speaking"];
+const CORE_MATERIALS = ["Wood", "Glass", "Metal", "Plastic", "Fabric", "Paper", "Leather", "Stone", "Liquid", "Skin"];
 
 const initialState = {
   idea: '',
   moods: [],
+  lighting: LIGHTING_STYLES[0],
   cameraMovement: CAMERA_MOVEMENTS[0],
   cameraAngle: CAMERA_ANGLES[0],
   cameraFocus: CAMERA_FOCUS[0],
+  visualEffects: [],
   soundscapePrimary: PRIMARY_SOUNDS[0],
   soundscapeSecondary: [],
   soundscapeQuality: SOUND_QUALITIES[0],
-  visualEffects: [],
+  asmrTriggers: [],
+  materials: [],
 };
 
 const FormControl = ({ label, children }) => (
@@ -85,6 +94,7 @@ export default function App() {
       description: `An ASMR-style video about: ${idea}.`,
       style: "ASMR",
       mood: rest.moods,
+      lighting: rest.lighting,
       camera: {
         movement: rest.cameraMovement,
         angle: rest.cameraAngle,
@@ -96,6 +106,10 @@ export default function App() {
         quality: rest.soundscapeQuality,
       },
       visual_effects: rest.visualEffects,
+      asmr_details: {
+        triggers: rest.asmrTriggers,
+        materials: rest.materials,
+      }
     };
     setGeneratedJson(JSON.stringify(jsonObject, null, 2));
     setValidationStatus('unchecked');
@@ -133,12 +147,13 @@ export default function App() {
     if (!generatedJson) return;
     try {
       const parsed = JSON.parse(generatedJson);
-      const requiredKeys = ["title", "description", "style", "mood", "camera", "soundscape", "visual_effects"];
+      const requiredKeys = ["title", "description", "style", "mood", "lighting", "camera", "soundscape", "visual_effects", "asmr_details"];
       const hasAllKeys = requiredKeys.every(key => key in parsed);
       const cameraKeysOk = "movement" in parsed.camera && "angle" in parsed.camera && "focus" in parsed.camera;
       const soundscapeKeysOk = "primary" in parsed.soundscape && "secondary" in parsed.soundscape && "quality" in parsed.soundscape;
+      const asmrDetailsOk = "triggers" in parsed.asmr_details && "materials" in parsed.asmr_details;
       
-      if (hasAllKeys && cameraKeysOk && soundscapeKeysOk) {
+      if (hasAllKeys && cameraKeysOk && soundscapeKeysOk && asmrDetailsOk) {
         setValidationStatus('valid');
       } else {
         setValidationStatus('invalid');
@@ -152,41 +167,78 @@ export default function App() {
     <div className="container">
       <header>
         <h1>ASMR Veo 3 JSON Prompt Generator</h1>
-        <p>Turn simple ideas into structured, creative JSON prompts for Google Veo 3.</p>
+        <p>Turn simple ideas into deeply detailed JSON prompts for any ASMR scenario.</p>
       </header>
 
       <main className="main-content">
         <section className="controls-panel">
-          <FormControl label="Your Idea">
+          <FormControl label="Core Idea">
             <input
               type="text"
               name="idea"
               className="input"
-              placeholder="e.g., forest rain at night"
+              placeholder="e.g., restoring a vintage watch"
               value={formState.idea}
               onChange={handleInputChange}
             />
           </FormControl>
+          
+          <details open>
+            <summary>Scene & Mood</summary>
+            <div className="details-content">
+              <FormControl label="Mood">
+                <MultiSelectGroup items={MOODS} selectedItems={formState.moods} onToggle={(item) => toggleMultiSelect(item, 'moods')} />
+              </FormControl>
+              <FormControl label="Lighting Style">
+                <SelectControl value={formState.lighting} onChange={e => setFormState(p => ({...p, lighting: e.target.value}))} options={LIGHTING_STYLES} />
+              </FormControl>
+            </div>
+          </details>
 
-          <FormControl label="Mood">
-            <MultiSelectGroup items={MOODS} selectedItems={formState.moods} onToggle={(item) => toggleMultiSelect(item, 'moods')} />
-          </FormControl>
+          <details>
+            <summary>ASMR Details</summary>
+            <div className="details-content">
+              <FormControl label="Primary ASMR Triggers">
+                <MultiSelectGroup items={ASMR_TRIGGERS} selectedItems={formState.asmrTriggers} onToggle={(item) => toggleMultiSelect(item, 'asmrTriggers')} />
+              </FormControl>
+              <FormControl label="Core Materials">
+                <MultiSelectGroup items={CORE_MATERIALS} selectedItems={formState.materials} onToggle={(item) => toggleMultiSelect(item, 'materials')} />
+              </FormControl>
+            </div>
+          </details>
 
-          <FormControl label="Camera">
-            <SelectControl value={formState.cameraMovement} onChange={e => setFormState(p => ({...p, cameraMovement: e.target.value}))} options={CAMERA_MOVEMENTS} />
-            <SelectControl value={formState.cameraAngle} onChange={e => setFormState(p => ({...p, cameraAngle: e.target.value}))} options={CAMERA_ANGLES} />
-            <SelectControl value={formState.cameraFocus} onChange={e => setFormState(p => ({...p, cameraFocus: e.target.value}))} options={CAMERA_FOCUS} />
-          </FormControl>
+          <details>
+            <summary>Camera & Visuals</summary>
+            <div className="details-content">
+              <FormControl label="Camera Movement">
+                <SelectControl value={formState.cameraMovement} onChange={e => setFormState(p => ({...p, cameraMovement: e.target.value}))} options={CAMERA_MOVEMENTS} />
+              </FormControl>
+               <FormControl label="Camera Angle">
+                <SelectControl value={formState.cameraAngle} onChange={e => setFormState(p => ({...p, cameraAngle: e.target.value}))} options={CAMERA_ANGLES} />
+              </FormControl>
+              <FormControl label="Camera Focus">
+                <SelectControl value={formState.cameraFocus} onChange={e => setFormState(p => ({...p, cameraFocus: e.target.value}))} options={CAMERA_FOCUS} />
+              </FormControl>
+              <FormControl label="Visual Effects">
+                <MultiSelectGroup items={VISUAL_EFFECTS} selectedItems={formState.visualEffects} onToggle={(item) => toggleMultiSelect(item, 'visualEffects')} />
+              </FormControl>
+            </div>
+          </details>
 
-          <FormControl label="Soundscape">
-            <SelectControl label="Primary" value={formState.soundscapePrimary} onChange={e => setFormState(p => ({...p, soundscapePrimary: e.target.value}))} options={PRIMARY_SOUNDS} />
-            <MultiSelectGroup label="Secondary" items={SECONDARY_SOUNDS} selectedItems={formState.soundscapeSecondary} onToggle={(item) => toggleMultiSelect(item, 'soundscapeSecondary')} />
-             <SelectControl label="Quality" value={formState.soundscapeQuality} onChange={e => setFormState(p => ({...p, soundscapeQuality: e.target.value}))} options={SOUND_QUALITIES} />
-          </FormControl>
-
-          <FormControl label="Visual Effects">
-            <MultiSelectGroup items={VISUAL_EFFECTS} selectedItems={formState.visualEffects} onToggle={(item) => toggleMultiSelect(item, 'visualEffects')} />
-          </FormControl>
+          <details>
+            <summary>Soundscape</summary>
+            <div className="details-content">
+              <FormControl label="Primary Sound">
+                <SelectControl value={formState.soundscapePrimary} onChange={e => setFormState(p => ({...p, soundscapePrimary: e.target.value}))} options={PRIMARY_SOUNDS} />
+              </FormControl>
+              <FormControl label="Secondary Sounds">
+                <MultiSelectGroup items={SECONDARY_SOUNDS} selectedItems={formState.soundscapeSecondary} onToggle={(item) => toggleMultiSelect(item, 'soundscapeSecondary')} />
+              </FormControl>
+              <FormControl label="Sound Quality">
+                <SelectControl value={formState.soundscapeQuality} onChange={e => setFormState(p => ({...p, soundscapeQuality: e.target.value}))} options={SOUND_QUALITIES} />
+              </FormControl>
+            </div>
+          </details>
 
           <div className="action-buttons">
             <button className="button primary" onClick={handleGenerateJson}>

@@ -1,3 +1,4 @@
+
 @charset "UTF-8";
 :root {
   --primary: #8e44ad;
@@ -98,7 +99,7 @@ header p {
   max-width: 600px;
   display: flex;
   flex-direction: column;
-  gap: 25px;
+  gap: 20px;
 }
 
 .output-panel {
@@ -122,7 +123,7 @@ header p {
 .form-control {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .form-control label {
@@ -163,6 +164,57 @@ header p {
   color: var(--text-tertiary);
   pointer-events: none;
 }
+
+/* Accordion sections */
+details {
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+details[open] {
+  border-color: var(--primary);
+}
+
+summary {
+  padding: 12px 15px;
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+  font-family: 'Google Sans Display', sans-serif;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.2s;
+}
+
+summary:hover {
+  background: var(--bg-quaternary);
+}
+
+summary::-webkit-details-marker {
+  display: none;
+}
+
+summary::before {
+  content: '▸';
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.details-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  background-color: var(--bg-secondary);
+}
+
 
 /* Multi-select chips */
 .multi-select-group {
