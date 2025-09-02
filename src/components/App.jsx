@@ -1,8 +1,10 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 import { useState, useCallback } from 'react';
+import { GoogleGenAI, Type } from "@google/genai";
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
@@ -12,19 +14,25 @@ const LIGHTING_STYLES = ["Natural Light (Day)", "Candlelight", "Neon Glow", "Sof
 const CAMERA_MOVEMENTS = ["Static", "Slow Pan", "Slow Zoom In", "Slow Zoom Out", "Dolly", "Handheld", "Orbit", "Tracking Shot"];
 const CAMERA_ANGLES = ["Eye-level", "Low Angle", "High Angle", "Dutch Angle", "Close-up", "Wide Shot", "Macro", "Point of View (POV)"];
 const CAMERA_FOCUS = ["Soft Focus", "Deep Focus", "Rack Focus", "Shallow Depth of Field"];
-const VISUAL_EFFECTS = ["Soft Glow", "Fog", "Muted Tones", "Film Grain", "Lens Flare", "Dust Particles", "Bokeh", "Chromatic Aberration", "Light Leaks", "Bloom", "Vignette"];
+const VISUAL_EFFECTS = ["Soft Glow", "Fog", "Muted Tones", "Film Grain", "Lens Flare", "Dust Particles", "Bokeh", "Chromatic Aberration", "Light Leaks", "Bloom", "Vignette", "Iridescence", "Translucence"];
 
 const PRIMARY_SOUNDS = ["Tapping", "Crinkling", "White Noise", "Humming", "Brushing", "Liquid Sounds", "Rain", "Fireplace", "Wind", "Ocean Waves", "Forest Ambience", "Keyboard Typing", "None"];
 const SECONDARY_SOUNDS = ["Soft Speaking", "Whispering", "Mouth Sounds (inaudible)", "Fabric Rustling", "Wood Creaks", "Thunder", "Birds Chirping", "Pages Turning", "Ticking Clock", "Purring Cat"];
 const SOUND_QUALITIES = ["High-Fidelity (Binaural)", "Lo-fi", "Muffled", "Crisp", "Reverberant", "Spacious"];
 
-const ASMR_TRIGGERS = ["Tapping", "Scratching", "Brushing", "Crinkling", "Whispering", "Personal Attention", "Typing", "Liquid Sounds", "Sticky Sounds", "Soft Speaking"];
-const CORE_MATERIALS = ["Wood", "Glass", "Metal", "Plastic", "Fabric", "Paper", "Leather", "Stone", "Liquid", "Skin"];
+const ASMR_TRIGGERS = ["Tapping", "Scratching", "Brushing", "Crinkling", "Whispering", "Personal Attention", "Typing", "Liquid Sounds", "Sticky Sounds", "Soft Speaking", "Slicing", "Squishing", "Layered Sounds"];
+const CORE_MATERIALS = ["Wood", "Glass", "Metal", "Plastic", "Fabric", "Paper", "Leather", "Stone", "Liquid", "Skin", "Gel", "Silicone", "Foam"];
+const PACING_OPTIONS = ["Slow and deliberate", "Rhythmic and repetitive", "Gentle and continuous", "Varied with pauses", "Quick and crisp"];
 
 const initialState = {
   idea: '',
+  description: '',
   moods: [],
   lighting: LIGHTING_STYLES[0],
+  pacing: PACING_OPTIONS[0],
+  sequence: '',
+  environment: '',
+  subject: '',
   cameraMovement: CAMERA_MOVEMENTS[0],
   cameraAngle: CAMERA_ANGLES[0],
   cameraFocus: CAMERA_FOCUS[0],
@@ -71,6 +79,7 @@ export default function App() {
   const [generatedJson, setGeneratedJson] = useState(null);
   const [validationStatus, setValidationStatus] = useState('unchecked');
   const [copyButtonText, setCopyButtonText] = useState('Copy');
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -87,13 +96,53 @@ export default function App() {
     });
   };
 
+  const handleEnhanceIdea = async () => {
+    if (!formState.idea || isEnhancing) return;
+    setIsEnhancing(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `Expand this ASMR idea into a richer title and description: "${formState.idea}"`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING, description: "A short, evocative, sensory-rich title for an ASMR video." },
+              description: { type: Type.STRING, description: "A detailed paragraph describing the scene, focusing on textures, sounds, and atmosphere." },
+            }
+          }
+        }
+      });
+
+      const result = JSON.parse(response.text);
+      setFormState(prev => ({
+        ...prev,
+        idea: result.title || prev.idea,
+        description: result.description || ''
+      }));
+
+    } catch (error) {
+      console.error("Error enhancing idea:", error);
+      // Basic error feedback can be added here
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+
   const handleGenerateJson = useCallback(() => {
-    const { idea, ...rest } = formState;
+    const { idea, description, ...rest } = formState;
     const jsonObject = {
       title: idea,
-      description: `An ASMR-style video about: ${idea}.`,
+      description: description || `An ASMR-style video about: ${idea}.`,
       style: "ASMR",
       mood: rest.moods,
+      pacing: rest.pacing,
+      environment: rest.environment,
+      subject: rest.subject,
+      sequence: rest.sequence.split('\n').filter(line => line.trim() !== ''),
       lighting: rest.lighting,
       camera: {
         movement: rest.cameraMovement,
@@ -147,7 +196,7 @@ export default function App() {
     if (!generatedJson) return;
     try {
       const parsed = JSON.parse(generatedJson);
-      const requiredKeys = ["title", "description", "style", "mood", "lighting", "camera", "soundscape", "visual_effects", "asmr_details"];
+      const requiredKeys = ["title", "description", "style", "mood", "lighting", "camera", "soundscape", "visual_effects", "asmr_details", "pacing", "environment", "subject", "sequence"];
       const hasAllKeys = requiredKeys.every(key => key in parsed);
       const cameraKeysOk = "movement" in parsed.camera && "angle" in parsed.camera && "focus" in parsed.camera;
       const soundscapeKeysOk = "primary" in parsed.soundscape && "secondary" in parsed.soundscape && "quality" in parsed.soundscape;
@@ -173,24 +222,48 @@ export default function App() {
       <main className="main-content">
         <section className="controls-panel">
           <FormControl label="Core Idea">
-            <input
-              type="text"
-              name="idea"
-              className="input"
-              placeholder="e.g., restoring a vintage watch"
-              value={formState.idea}
-              onChange={handleInputChange}
+            <div className="input-group">
+               <input
+                type="text"
+                name="idea"
+                className="input"
+                placeholder="e.g., restoring a vintage watch"
+                value={formState.idea}
+                onChange={handleInputChange}
+              />
+              <button className="button secondary" onClick={handleEnhanceIdea} disabled={isEnhancing || !formState.idea}>
+                <span className={`icon ${isEnhancing ? 'loading' : ''}`}>{isEnhancing ? 'progress_activity' : 'auto_fix_high'}</span>
+                {isEnhancing ? 'Enhancing...' : 'Enhance with AI'}
+              </button>
+            </div>
+          </FormControl>
+          <FormControl label="Scene Description">
+            <textarea
+                name="description"
+                className="textarea"
+                placeholder="A detailed description of the scene, atmosphere, and key actions. Use the AI enhancer to generate this."
+                value={formState.description}
+                onChange={handleInputChange}
             />
           </FormControl>
           
           <details open>
-            <summary>Scene & Mood</summary>
+            <summary>Scene & Narrative</summary>
             <div className="details-content">
               <FormControl label="Mood">
                 <MultiSelectGroup items={MOODS} selectedItems={formState.moods} onToggle={(item) => toggleMultiSelect(item, 'moods')} />
               </FormControl>
-              <FormControl label="Lighting Style">
-                <SelectControl value={formState.lighting} onChange={e => setFormState(p => ({...p, lighting: e.target.value}))} options={LIGHTING_STYLES} />
+               <FormControl label="Pacing & Rhythm">
+                <SelectControl value={formState.pacing} onChange={e => setFormState(p => ({...p, pacing: e.target.value}))} options={PACING_OPTIONS} />
+              </FormControl>
+               <FormControl label="Environment / Setting">
+                 <input type="text" name="environment" className="input" placeholder="e.g., A quiet, sterile laboratory" value={formState.environment} onChange={handleInputChange} />
+              </FormControl>
+              <FormControl label="Subject Details">
+                 <input type="text" name="subject" className="input" placeholder="e.g., Gloved hands moving with precision" value={formState.subject} onChange={handleInputChange} />
+              </FormControl>
+               <FormControl label="Action Sequence (one action per line)">
+                <textarea name="sequence" className="textarea" placeholder="1. Opens the watch case&#10;2. Gently removes the gears&#10;3. Cleans each part with a soft brush" value={formState.sequence} onChange={handleInputChange} />
               </FormControl>
             </div>
           </details>
@@ -210,6 +283,9 @@ export default function App() {
           <details>
             <summary>Camera & Visuals</summary>
             <div className="details-content">
+                <FormControl label="Lighting Style">
+                    <SelectControl value={formState.lighting} onChange={e => setFormState(p => ({...p, lighting: e.target.value}))} options={LIGHTING_STYLES} />
+                </FormControl>
               <FormControl label="Camera Movement">
                 <SelectControl value={formState.cameraMovement} onChange={e => setFormState(p => ({...p, cameraMovement: e.target.value}))} options={CAMERA_MOVEMENTS} />
               </FormControl>

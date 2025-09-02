@@ -40,7 +40,7 @@ body {
   min-height: 100dvh;
 }
 
-button, input, select {
+button, input, select, textarea {
   font-family: 'Google Sans Mono', monospace;
   background: none;
   color: var(--text-primary);
@@ -133,7 +133,12 @@ header p {
   letter-spacing: 0.5px;
 }
 
-.input, .select {
+.input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.input, .textarea, .select {
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: 6px;
@@ -142,7 +147,12 @@ header p {
   transition: border-color 0.2s;
 }
 
-.input:focus, .select:focus {
+.textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.input:focus, .textarea:focus, .select:focus {
   border-color: var(--primary);
 }
 
@@ -283,6 +293,15 @@ details[open] > summary::before {
 .button.secondary:hover:not(:disabled) {
   background: var(--bg-quaternary);
   color: var(--text-primary);
+}
+
+.button .icon.loading {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .action-buttons {
