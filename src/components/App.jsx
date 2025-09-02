@@ -1,9 +1,8 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import SyntaxHighlighter from 'react-syntax-highlighter';
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
@@ -77,9 +76,15 @@ const SelectControl = ({ value, onChange, options }) => (
 export default function App() {
   const [formState, setFormState] = useState(initialState);
   const [generatedJson, setGeneratedJson] = useState(null);
+  const [narrativePrompt, setNarrativePrompt] = useState('');
+  const [isGeneratingNarrative, setIsGeneratingNarrative] = useState(false);
   const [validationStatus, setValidationStatus] = useState('unchecked');
   const [copyButtonText, setCopyButtonText] = useState('Copy');
+  const [copyNarrativeButtonText, setCopyNarrativeButtonText] = useState('Copy');
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isRefining, setIsRefining] = useState(false);
+  const fileInputRef = useRef(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -94,6 +99,65 @@ export default function App() {
         : [...currentSelection, item];
       return { ...prev, [field]: newSelection };
     });
+  };
+  
+  const handleImageAnalysis = async (imageDataUrl) => {
+    if (!imageDataUrl || isAnalyzing) return;
+    setIsAnalyzing(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const base64Data = imageDataUrl.split(',')[1];
+      const mimeType = imageDataUrl.match(/data:(.*);/)[1];
+
+      const imagePart = {
+        inlineData: {
+          data: base64Data,
+          mimeType: mimeType,
+        },
+      };
+      const textPart = {
+        text: `Analyze this image from what appears to be an ASMR video. Based on the visual content, generate a short, evocative title (as 'title') and a detailed, sensory-rich paragraph (as 'description') describing the scene. Focus on textures, potential sounds, and the overall atmosphere. This will be used to seed a prompt for an AI video generator.`
+      };
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: { parts: [imagePart, textPart] },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING, description: "A short, evocative, sensory-rich title for an ASMR video based on the image." },
+              description: { type: Type.STRING, description: "A detailed paragraph describing the scene from the image, focusing on textures, sounds, and atmosphere." },
+            }
+          }
+        }
+      });
+
+      const result = JSON.parse(response.text);
+      setFormState(prev => ({
+        ...prev,
+        idea: result.title || prev.idea,
+        description: result.description || ''
+      }));
+
+    } catch (error) {
+      console.error("Error analyzing image:", error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handleImageAnalysis(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = null;
   };
 
   const handleEnhanceIdea = async () => {
@@ -125,7 +189,6 @@ export default function App() {
 
     } catch (error) {
       console.error("Error enhancing idea:", error);
-      // Basic error feedback can be added here
     } finally {
       setIsEnhancing(false);
     }
@@ -162,12 +225,152 @@ export default function App() {
     };
     setGeneratedJson(JSON.stringify(jsonObject, null, 2));
     setValidationStatus('unchecked');
+    setNarrativePrompt('');
   }, [formState]);
+
+  const updateFormStateFromJson = (jsonObject) => {
+    if (!jsonObject) return;
+    setFormState(prev => ({
+        ...prev,
+        idea: jsonObject.title || '',
+        description: jsonObject.description || '',
+        moods: jsonObject.mood || [],
+        pacing: jsonObject.pacing || PACING_OPTIONS[0],
+        environment: jsonObject.environment || '',
+        subject: jsonObject.subject || '',
+        sequence: Array.isArray(jsonObject.sequence) ? jsonObject.sequence.join('\n') : '',
+        lighting: jsonObject.lighting || LIGHTING_STYLES[0],
+        cameraMovement: jsonObject.camera?.movement || CAMERA_MOVEMENTS[0],
+        cameraAngle: jsonObject.camera?.angle || CAMERA_ANGLES[0],
+        cameraFocus: jsonObject.camera?.focus || CAMERA_FOCUS[0],
+        visualEffects: jsonObject.visual_effects || [],
+        soundscapePrimary: jsonObject.soundscape?.primary || PRIMARY_SOUNDS[0],
+        soundscapeSecondary: jsonObject.soundscape?.secondary || [],
+        soundscapeQuality: jsonObject.soundscape?.quality || SOUND_QUALITIES[0],
+        asmrTriggers: jsonObject.asmr_details?.triggers || [],
+        materials: jsonObject.asmr_details?.materials || [],
+    }));
+  };
+
+  const handleRefineJson = async () => {
+    if (!generatedJson || isRefining) return;
+    setIsRefining(true);
+    setValidationStatus('unchecked');
+
+    const prompt = `You are an expert ASMR video director and prompt engineer for advanced video generation models. Your task is to analyze the following user-provided JSON prompt and refine it.
+
+Your goal is to make the prompt more immersive, creative, consistent, and complete. Identify missing fields or inconsistencies and return a complete, enriched JSON object based on the original idea. All fields must be filled with creative and consistent values. The description should be sensory-rich. The sequence should outline key moments.
+
+Analyze this JSON:
+\`\`\`json
+${generatedJson}
+\`\`\`
+
+Return ONLY the refined JSON object, matching the provided schema. Do not include any other text or explanation.`;
+    
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING },
+        description: { type: Type.STRING },
+        style: { type: Type.STRING },
+        mood: { type: Type.ARRAY, items: { type: Type.STRING } },
+        pacing: { type: Type.STRING },
+        environment: { type: Type.STRING },
+        subject: { type: Type.STRING },
+        sequence: { type: Type.ARRAY, items: { type: Type.STRING } },
+        lighting: { type: Type.STRING },
+        camera: {
+          type: Type.OBJECT,
+          properties: {
+            movement: { type: Type.STRING },
+            angle: { type: Type.STRING },
+            focus: { type: Type.STRING },
+          },
+          required: ['movement', 'angle', 'focus']
+        },
+        soundscape: {
+          type: Type.OBJECT,
+          properties: {
+            primary: { type: Type.STRING },
+            secondary: { type: Type.ARRAY, items: { type: Type.STRING } },
+            quality: { type: Type.STRING },
+          },
+          required: ['primary', 'secondary', 'quality']
+        },
+        visual_effects: { type: Type.ARRAY, items: { type: Type.STRING } },
+        asmr_details: {
+          type: Type.OBJECT,
+          properties: {
+            triggers: { type: Type.ARRAY, items: { type: Type.STRING } },
+            materials: { type: Type.ARRAY, items: { type: Type.STRING } },
+          },
+          required: ['triggers', 'materials']
+        },
+      }
+    };
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: responseSchema,
+        }
+      });
+      const resultJson = JSON.parse(response.text);
+      setGeneratedJson(JSON.stringify(resultJson, null, 2));
+      updateFormStateFromJson(resultJson);
+
+    } catch (error) {
+      console.error("Error refining JSON:", error);
+    } finally {
+      setIsRefining(false);
+    }
+  };
+
+  const handleGenerateNarrative = async () => {
+    if (!generatedJson || isGeneratingNarrative) return;
+    setIsGeneratingNarrative(true);
+    setNarrativePrompt('');
+
+    const userPromptExample = `macro, hyper-realistic video of a single frozen blue raspberry sitting inside a real glass tumbler on a pastel wooden surface. the raspberry resembles a blue version of apple snail eggs — translucent, plump, clustered tiny spheres, with a glossy frosted sheen. a clear glass pestle slowly descends into the glass, pressing down and crushing the blue raspberry clusters with a satisfying soft, icy popping sound, similar to breaking frozen caviar. crushed berry juices ooze out with a vivid blue color and slight frost vapor, pooling beautifully in the bottom of the glass. the background is a softly blurred pale pastel color, decorated with delicate twinkle fairy lights out of focus, creating a cozy, modern aesthetic. natural soft lighting, HDR, ultra-realistic detail, IMAX laser look, 8K, no music, only gentle ASMR crushing and icy crackling sounds.`;
+
+    const prompt = `You are an expert prompt writer for text-to-video AI models. Your task is to convert a structured JSON object into a single, cohesive, and highly descriptive narrative paragraph. The paragraph should be a single block of text, incorporating all the details from the JSON to create an immersive and vivid scene description.
+
+**Example of desired output format and style:**
+'${userPromptExample}'
+
+Now, based on that style, convert the following JSON object into a single narrative prompt paragraph. Do not add any preamble or explanation. Return only the generated paragraph.
+
+JSON to convert:
+\`\`\`json
+${generatedJson}
+\`\`\`
+`;
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      setNarrativePrompt(response.text.trim());
+    } catch (error) {
+      console.error("Error generating narrative prompt:", error);
+      setNarrativePrompt("Error: Could not generate narrative prompt.");
+    } finally {
+      setIsGeneratingNarrative(false);
+    }
+  };
 
   const handleReset = useCallback(() => {
     setFormState(initialState);
     setGeneratedJson(null);
     setValidationStatus('unchecked');
+    setNarrativePrompt('');
   }, []);
 
   const handleCopyJson = useCallback(() => {
@@ -177,6 +380,14 @@ export default function App() {
       setTimeout(() => setCopyButtonText('Copy'), 2000);
     });
   }, [generatedJson]);
+  
+  const handleCopyNarrative = useCallback(() => {
+    if (!narrativePrompt) return;
+    navigator.clipboard.writeText(narrativePrompt).then(() => {
+      setCopyNarrativeButtonText('Copied!');
+      setTimeout(() => setCopyNarrativeButtonText('Copy'), 2000);
+    });
+  }, [narrativePrompt]);
 
   const handleDownloadJson = useCallback(() => {
     if (!generatedJson) return;
@@ -227,13 +438,25 @@ export default function App() {
                 type="text"
                 name="idea"
                 className="input"
-                placeholder="e.g., restoring a vintage watch"
+                placeholder="e.g., restoring a vintage watch or upload image"
                 value={formState.idea}
                 onChange={handleInputChange}
               />
-              <button className="button secondary" onClick={handleEnhanceIdea} disabled={isEnhancing || !formState.idea}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept="image/*"
+                style={{ display: 'none' }}
+                aria-hidden="true"
+              />
+              <button className="button secondary icon-only" onClick={handleEnhanceIdea} disabled={isEnhancing || isAnalyzing || !formState.idea}>
                 <span className={`icon ${isEnhancing ? 'loading' : ''}`}>{isEnhancing ? 'progress_activity' : 'auto_fix_high'}</span>
-                {isEnhancing ? 'Enhancing...' : 'Enhance with AI'}
+                <span className="tooltip">Enhance with AI</span>
+              </button>
+              <button className="button secondary icon-only" onClick={() => fileInputRef.current.click()} disabled={isAnalyzing || isEnhancing}>
+                 <span className={`icon ${isAnalyzing ? 'loading' : ''}`}>{isAnalyzing ? 'progress_activity' : 'add_photo_alternate'}</span>
+                 <span className="tooltip">Generate from Image</span>
               </button>
             </div>
           </FormControl>
@@ -357,6 +580,10 @@ export default function App() {
           </div>
            {generatedJson && (
             <div className="action-buttons">
+              <button className="button primary" onClick={handleRefineJson} disabled={isRefining}>
+                <span className={`icon ${isRefining ? 'loading' : ''}`}>{isRefining ? 'progress_activity' : 'auto_fix_high'}</span>
+                {isRefining ? 'Refining...' : 'Refine with AI'}
+              </button>
               <button className="button secondary" onClick={handleSelfTest}>
                 <span className="icon">science</span> Run Self-Test
               </button>
@@ -367,6 +594,47 @@ export default function App() {
               </div>
             </div>
            )}
+
+          {generatedJson && (
+            <>
+              <div className="output-area" style={{ marginTop: '20px', minHeight: '200px', flexShrink: 0 }}>
+                <div className="output-header">
+                  <h3>Narrative Prompt</h3>
+                  {narrativePrompt && !isGeneratingNarrative && (
+                    <div className="output-actions">
+                      <button className="button secondary" onClick={handleCopyNarrative} disabled={copyNarrativeButtonText === 'Copied!'}>
+                        <span className="icon">content_copy</span> {copyNarrativeButtonText}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="json-preview">
+                  {isGeneratingNarrative ? (
+                    <div className="placeholder">
+                      <span className="icon loading" style={{fontSize: '2rem'}}>progress_activity</span>
+                    </div>
+                  ) : narrativePrompt ? (
+                    <textarea
+                      readOnly
+                      className="narrative-output"
+                      value={narrativePrompt}
+                    />
+                  ) : (
+                    <div className="placeholder">
+                      <p>Generate a descriptive paragraph from your JSON.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="action-buttons">
+                <button className="button primary" onClick={handleGenerateNarrative} disabled={isGeneratingNarrative}>
+                  <span className={`icon ${isGeneratingNarrative ? 'loading' : ''}`}>{isGeneratingNarrative ? 'progress_activity' : 'notes'}</span>
+                  {isGeneratingNarrative ? 'Generating...' : 'Generate Narrative Prompt'}
+                </button>
+              </div>
+            </>
+          )}
+
         </section>
       </main>
     </div>

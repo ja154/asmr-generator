@@ -1,4 +1,5 @@
 
+
 @charset "UTF-8";
 :root {
   --primary: #8e44ad;
@@ -268,6 +269,7 @@ details[open] > summary::before {
   transition: all 0.2s;
   border: 1px solid transparent;
   user-select: none;
+  position: relative; /* For tooltip positioning */
 }
 
 .button:disabled {
@@ -345,6 +347,8 @@ details[open] > summary::before {
   flex: 1;
   overflow: auto;
   font-size: 13px;
+  display: flex;
+  flex-direction: column;
 }
 
 .json-preview pre {
@@ -356,6 +360,7 @@ details[open] > summary::before {
 
 .placeholder {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
@@ -375,3 +380,47 @@ details[open] > summary::before {
 .validation-status.valid { color: var(--success); }
 .validation-status.invalid { color: var(--error); }
 .validation-status.unchecked { color: var(--text-tertiary); }
+
+/* Icon Buttons & Tooltips */
+.button.icon-only {
+  padding: 12px;
+  flex-shrink: 0;
+}
+
+.button .tooltip {
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--bg-quaternary);
+  color: var(--text-primary);
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'Google Sans Display', sans-serif;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.button:hover .tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.narrative-output {
+  flex: 1;
+  display: flex;
+  padding: 15px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: 'Google Sans Display', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: none;
+  white-space: pre-wrap;
+}
