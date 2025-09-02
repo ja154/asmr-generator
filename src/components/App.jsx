@@ -84,6 +84,7 @@ export default function App() {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleInputChange = (e) => {
@@ -191,6 +192,66 @@ export default function App() {
       console.error("Error enhancing idea:", error);
     } finally {
       setIsEnhancing(false);
+    }
+  };
+
+  const handleSuggestSettings = async () => {
+    if (!formState.idea || isSuggesting) return;
+    setIsSuggesting(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const prompt = `You are an expert ASMR video director. Analyze the following ASMR video concept and suggest the best settings to create a compelling and immersive experience.
+
+**Core Idea:** "${formState.idea}"
+**Description:** "${formState.description || 'No description provided.'}"
+
+Based on this, fill out the following fields. For fields with options, choose the most fitting ones from the provided lists in the schema description. For free-text fields, be creative and descriptive. The action sequence should be a few concise, newline-separated steps. Return ONLY a valid JSON object adhering to the schema.`;
+
+      const suggestionSchema = {
+        type: Type.OBJECT,
+        properties: {
+          moods: { type: Type.ARRAY, items: { type: Type.STRING }, description: `Select a few moods from: ${MOODS.join(', ')}` },
+          lighting: { type: Type.STRING, description: `Select one lighting style from: ${LIGHTING_STYLES.join(', ')}` },
+          pacing: { type: Type.STRING, description: `Select one pacing from: ${PACING_OPTIONS.join(', ')}` },
+          environment: { type: Type.STRING, description: "A brief description of the setting, e.g., 'A cozy, dimly lit library'." },
+          subject: { type: Type.STRING, description: "A brief description of the main subject, e.g., 'An antique leather-bound book'." },
+          sequence: { type: Type.STRING, description: "A newline-separated list of 3-5 key actions, e.g., '1. Gently opening the book cover\\n2. Slowly turning the crisp pages'." },
+          cameraMovement: { type: Type.STRING, description: `Select one from: ${CAMERA_MOVEMENTS.join(', ')}` },
+          cameraAngle: { type: Type.STRING, description: `Select one from: ${CAMERA_ANGLES.join(', ')}` },
+          cameraFocus: { type: Type.STRING, description: `Select one from: ${CAMERA_FOCUS.join(', ')}` },
+          visualEffects: { type: Type.ARRAY, items: { type: Type.STRING }, description: `Select a few from: ${VISUAL_EFFECTS.join(', ')}` },
+          soundscapePrimary: { type: Type.STRING, description: `Select one from: ${PRIMARY_SOUNDS.join(', ')}` },
+          soundscapeSecondary: { type: Type.ARRAY, items: { type: Type.STRING }, description: `Select a few from: ${SECONDARY_SOUNDS.join(', ')}` },
+          soundscapeQuality: { type: Type.STRING, description: `Select one from: ${SOUND_QUALITIES.join(', ')}` },
+          asmrTriggers: { type: Type.ARRAY, items: { type: Type.STRING }, description: `Select a few from: ${ASMR_TRIGGERS.join(', ')}` },
+          materials: { type: Type.ARRAY, items: { type: Type.STRING }, description: `Select a few from: ${CORE_MATERIALS.join(', ')}` },
+        }
+      };
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: suggestionSchema,
+        }
+      });
+      
+      const result = JSON.parse(response.text);
+      setFormState(prev => ({
+        ...prev,
+        ...result,
+        moods: Array.isArray(result.moods) ? result.moods : [],
+        visualEffects: Array.isArray(result.visualEffects) ? result.visualEffects : [],
+        soundscapeSecondary: Array.isArray(result.soundscapeSecondary) ? result.soundscapeSecondary : [],
+        asmrTriggers: Array.isArray(result.asmrTriggers) ? result.asmrTriggers : [],
+        materials: Array.isArray(result.materials) ? result.materials : [],
+      }));
+
+    } catch (error) {
+      console.error("Error suggesting settings:", error);
+    } finally {
+      setIsSuggesting(false);
     }
   };
 
@@ -450,11 +511,15 @@ ${generatedJson}
                 style={{ display: 'none' }}
                 aria-hidden="true"
               />
-              <button className="button secondary icon-only" onClick={handleEnhanceIdea} disabled={isEnhancing || isAnalyzing || !formState.idea}>
+              <button className="button secondary icon-only" onClick={handleEnhanceIdea} disabled={isEnhancing || isAnalyzing || isSuggesting || !formState.idea}>
                 <span className={`icon ${isEnhancing ? 'loading' : ''}`}>{isEnhancing ? 'progress_activity' : 'auto_fix_high'}</span>
                 <span className="tooltip">Enhance with AI</span>
               </button>
-              <button className="button secondary icon-only" onClick={() => fileInputRef.current.click()} disabled={isAnalyzing || isEnhancing}>
+              <button className="button secondary icon-only" onClick={handleSuggestSettings} disabled={isSuggesting || isEnhancing || isAnalyzing || !formState.idea}>
+                <span className={`icon ${isSuggesting ? 'loading' : ''}`}>{isSuggesting ? 'progress_activity' : 'tips_and_updates'}</span>
+                <span className="tooltip">Suggest settings with AI</span>
+              </button>
+              <button className="button secondary icon-only" onClick={() => fileInputRef.current.click()} disabled={isAnalyzing || isEnhancing || isSuggesting}>
                  <span className={`icon ${isAnalyzing ? 'loading' : ''}`}>{isAnalyzing ? 'progress_activity' : 'add_photo_alternate'}</span>
                  <span className="tooltip">Generate from Image</span>
               </button>
