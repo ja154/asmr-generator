@@ -18,6 +18,23 @@
   --selection-text: #ffffff;
 }
 
+html.light-mode {
+  --primary: #8e44ad;
+  --primary-light: #9b59b6;
+  --success: #1e8449;
+  --error: #c0392b;
+  --bg-primary: #f4f4f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f0f0;
+  --bg-quaternary: #e5e5e5;
+  --text-primary: #111111;
+  --text-secondary: #444444;
+  --text-tertiary: #777777;
+  --border-primary: #e0e0e0;
+  --selection-bg: var(--primary);
+  --selection-text: #ffffff;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -35,6 +52,7 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 #root, .container {
@@ -72,6 +90,11 @@ header {
   padding: 20px 40px;
   border-bottom: 1px solid var(--border-primary);
   background: var(--bg-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
 }
 
 header h1 {
@@ -145,7 +168,7 @@ header p {
   border-radius: 6px;
   padding: 12px;
   width: 100%;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, background-color 0.2s;
 }
 
 .textarea {
@@ -181,6 +204,7 @@ details {
   border: 1px solid var(--border-primary);
   border-radius: 8px;
   overflow: hidden;
+  transition: border-color 0.2s;
 }
 
 details[open] {
@@ -322,6 +346,7 @@ details[open] > summary::before {
   border: 1px solid var(--border-primary);
   border-radius: 8px;
   overflow: hidden;
+  transition: background-color 0.2s, border-color 0.2s;
 }
 
 .output-header {
@@ -331,11 +356,13 @@ details[open] > summary::before {
   padding: 10px 15px;
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border-primary);
+  transition: background-color 0.2s, border-color 0.2s;
 }
 
 .output-header h3 {
   font-size: 14px;
   color: var(--text-secondary);
+  transition: color 0.2s;
 }
 
 .output-actions {
@@ -367,6 +394,7 @@ details[open] > summary::before {
   color: var(--text-tertiary);
   text-align: center;
   padding: 20px;
+  transition: color 0.2s;
 }
 
 /* Validation Status */

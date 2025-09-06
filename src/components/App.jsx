@@ -2,10 +2,10 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import SyntaxHighlighter from 'react-syntax-highlighter';
-import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import { atomOneDark, atomOneLight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
 const MOODS = ["Calm", "Cozy", "Mysterious", "Ethereal", "Melancholy", "Dreamy", "Intimate", "Playful", "Futuristic", "Vintage", "Clinical", "Soothing"];
 const LIGHTING_STYLES = ["Natural Light (Day)", "Candlelight", "Neon Glow", "Soft Studio Light", "Dim Ambient", "Backlit", "Cinematic", "Moonlight"];
@@ -85,7 +85,28 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRefining, setIsRefining] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [theme, setTheme] = useState('dark');
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    const initialTheme = savedTheme || (prefersLight ? 'light' : 'dark');
+    setTheme(initialTheme);
+  }, []);
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light-mode');
+    } else {
+      document.documentElement.classList.remove('light-mode');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+  
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -487,8 +508,14 @@ ${generatedJson}
   return (
     <div className="container">
       <header>
-        <h1>ASMR Veo 3 JSON Prompt Generator</h1>
-        <p>Turn simple ideas into deeply detailed JSON prompts for any ASMR scenario.</p>
+        <div>
+            <h1>ASMR Veo 3 JSON Prompt Generator</h1>
+            <p>Turn simple ideas into deeply detailed JSON prompts for any ASMR scenario.</p>
+        </div>
+        <button className="button secondary icon-only" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+            <span className="icon">{theme === 'light' ? 'dark_mode' : 'light_mode'}</span>
+            <span className="tooltip">Switch to {theme === 'light' ? 'dark' : 'light'} mode</span>
+        </button>
       </header>
 
       <main className="main-content">
@@ -633,7 +660,7 @@ ${generatedJson}
             </div>
             <div className="json-preview">
               {generatedJson ? (
-                <SyntaxHighlighter language="json" style={atomOneDark} customStyle={{ height: '100%' }}>
+                <SyntaxHighlighter language="json" style={theme === 'light' ? atomOneLight : atomOneDark} customStyle={{ height: '100%' }}>
                   {generatedJson}
                 </SyntaxHighlighter>
               ) : (
