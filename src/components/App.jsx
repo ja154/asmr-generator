@@ -19,7 +19,7 @@ const PRIMARY_SOUNDS = ["Tapping", "Crinkling", "White Noise", "Humming", "Brush
 const SECONDARY_SOUNDS = ["Soft Speaking", "Whispering", "Mouth Sounds (inaudible)", "Fabric Rustling", "Wood Creaks", "Thunder", "Birds Chirping", "Pages Turning", "Ticking Clock", "Purring Cat"];
 const SOUND_QUALITIES = ["High-Fidelity (Binaural)", "Lo-fi", "Muffled", "Crisp", "Reverberant", "Spacious"];
 
-const ASMR_TRIGGERS = ["Tapping", "Scratching", "Brushing", "Crinkling", "Whispering", "Personal Attention", "Typing", "Liquid Sounds", "Sticky Sounds", "Soft Speaking", "Slicing", "Squishing", "Layered Sounds"];
+const ASMR_TRIGGERS = ["Brushing Sounds", "Crinkling Sounds", "Eating Sounds", "Fabric Scratching", "Keyboard Typing", "Layered Sounds", "Liquid Sounds", "Object Manipulation", "Personal Attention", "Scratching", "Slicing", "Soft Speaking", "Squishing", "Sticky Sounds", "Tapping Sounds", "Water Sounds", "Whispering"];
 const CORE_MATERIALS = ["Wood", "Glass", "Metal", "Plastic", "Fabric", "Paper", "Leather", "Stone", "Liquid", "Skin", "Gel", "Silicone", "Foam"];
 const PACING_OPTIONS = ["Slow and deliberate", "Rhythmic and repetitive", "Gentle and continuous", "Varied with pauses", "Quick and crisp"];
 
